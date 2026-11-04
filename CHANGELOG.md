@@ -1,5 +1,90 @@
 # CHANGELOG.md
 
+## [2.30.3] - 2026-11-05
+Remove the deprecated Disaster Recovery bundle and the shared-worker entry point, fix four
+subscription APIs, forward the email ringtone options to the embedded CCP, and stop one
+throwing callback from blocking the others.
+
+Breaking: the names below are removed. The API documentation describes none of them.
+initCCP() no longer reads the disasterRecoveryOn option.
+
+release/connect-streams-dr.js, release/connect-streams-dr-min.js
+  - No longer built or published. The Global Resiliency APIs in Documentation-GR.md replace
+    them.
+
+src/core.js
+  - Remove connect.core.initDisasterRecovery and the rest of the legacy Disaster Recovery path.
+    initCCP() ignores the disasterRecoveryOn option, so the default iframe refresh interval is
+    5 seconds for every page, and connect.core.region, connect.core.suppressContacts and
+    connect.core.forceOffline are no longer set.
+  - Remove connect.core.init, connect.core.initAgentAppClient,
+    connect.core.initTaskTemplatesClient, connect.core.getAgentAppClient,
+    connect.core.getTaskTemplatesClient, connect.core.agentAppClient and
+    connect.core.taskTemplatesClient. Only the shared-worker entry point set up these clients.
+  - Forward email.disableRingtone and email.ringtoneUrl from initCCP() to the embedded CCP, so
+    the email ringtone can be disabled or replaced.
+  - Run each WebSocket subscriber callback on its own, so a callback that throws is logged and
+    the other subscribers still receive the message.
+  - connect.core.getFrameMediaDevices() rejects with the enumerateDevices() error instead of
+    waiting for its timeout.
+  - A failed Web Lock request for the login popup is logged instead of left unhandled.
+
+src/client.js
+  - Remove connect.AgentAppClient and connect.TaskTemplatesClient.
+
+src/event.js
+  - Remove connect.DisasterRecoveryEvents.
+
+src/util.js
+  - Remove connect.isSharedWorker() and connect.TRANSPORT_TYPES.AGENT_DISCOVERY.
+  - Add connect.invokeSafely and connect.invokeAllSafely, which run consumer callbacks so that
+    one that throws is logged and does not stop the caller.
+
+src/worker.js
+  - Removed, with connect.worker. It was the shared-worker entry point of the CCP and never ran
+    in a page that calls initCCP().
+
+src/api.js
+  - VoiceConnection.onCanResumeParticipantUpdated now subscribes, and unsubscribe() on the
+    subscription it returns removes the handler. It called a voice-client method that does not
+    exist, so it threw a TypeError.
+  - unsubscribe() on the subscriptions that VoiceConnection.onParticipantHold and
+    VoiceConnection.onParticipantResume return now removes the handler. It left out the
+    connection id, so the handler stayed and the callback kept running.
+  - unsubscribe() on the subscription that
+    SessionExpirationWarningManager.onSessionExtensionError returns now removes the handler. It
+    removed a handler on a different topic, so the handler stayed.
+  - voiceConnection.enrollSpeakerInVoiceId() rejects when an enrollment status check fails,
+    instead of never settling.
+
+src/softphone.js
+  - The end-of-call softphone report includes allowExtendedPersistentConnection.
+  - A failed microphone-permission query is logged instead of left unhandled.
+  - A chat, task or email contact no longer makes the softphone manager log a TypeError, and one
+    already open no longer stops the softphone manager from starting. It subscribed to
+    onParticipantResume on every contact's agent connection, and only a voice connection has
+    that method.
+
+src/ringtone.js
+  - A failed re-apply of the ringtone output device is logged as a warning instead of left
+    unhandled. Browsers without setSinkId log this warning when a ringtone loads.
+
+src/index.d.ts
+  - Add EmailOptions, and the email option on InitCCPOptions and OptionalInitCCPOptions.
+
+package.json
+  - The npm package includes NOTICE.txt and THIRD_PARTY.txt.
+  - Remove nine development dependencies, mocha, nyc, sinon and jshint among them, and the
+    Disaster Recovery and mocha build scripts.
+  - npm run release fails on any lint warning, runs type-aware lint rules over src
+    (tsconfig.lint.json), and fails when Jest coverage falls below the thresholds in
+    test/unit/jest.config.js.
+
+.eslintrc.json
+  - Changed. This file, like the one it replaces, extends a style package that is not on npm.
+    npm run release and the public CI do not read it: they lint with npm run lint-strict, which
+    reads .eslintrc.strict.json.
+
 ## [2.30.2] - 2026-10-13
 Delegate the loopback-network permission to the embedded CCP iframe so VDI
 softphone redirection can reach its local loopback socket in Chrome and Edge
