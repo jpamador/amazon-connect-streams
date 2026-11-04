@@ -128,14 +128,6 @@ describe('connect.core._refreshIframeOnTimeout', () => {
     expect(setTimeoutSpy.mock.calls[0][1]).toBe(250);
   });
 
-  it('uses CCP_DR_IFRAME_REFRESH_INTERVAL when disasterRecoveryOn is true and no override is supplied', () => {
-    const params = { ccpUrl: 'url.com', disasterRecoveryOn: true };
-    const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
-    connect.core._refreshIframeOnTimeout(params, makeContainerDiv());
-    // CCP_DR_IFRAME_REFRESH_INTERVAL = 10_000 ms (production default for DR).
-    expect(setTimeoutSpy.mock.calls[0][1]).toBe(10000);
-  });
-
   it('preserves the existing iframe.style.cssText onto the new iframe after teardown', () => {
     const params = { ccpUrl: 'url.com' };
     getCCPIframeSpy.mockReturnValueOnce({

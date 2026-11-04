@@ -82,8 +82,6 @@
 
   var softphoneClientId = connect.randomId();
 
-  let errorBatchMap = {};
-
   //used for bullet routing - only the last active contact can make changes to the media stream.
   let lastActiveContactID = "";
   const contactAgentConnectionIdMap = {}
@@ -216,7 +214,7 @@
     // destroy or initiate persistent peer connection based on agent configuration change
     const listenAgentConfigurationUpdate = () => {
       connect.agent( (a) => {
-        const sub = a.onRefresh( (agent) => {
+        a.onRefresh( (agent) => {
           const isPPCEnabled = agent.getConfiguration().softphonePersistentConnection;
           const shouldUseV2 = !!connect.RtcPeerConnectionManagerV2;
 
@@ -340,7 +338,7 @@
     }
 
     if(softphoneParams.VDIPlatform !== VDIPlatformType.AWS_WORKSPACE) {
-      var gumPromise = fetchUserMedia({
+      void fetchUserMedia({
         success: function (stream) {
           publishTelemetryEvent("ConnectivityCheckResult", null,
             {
@@ -911,6 +909,9 @@
             }
           }
         })
+        .catch(function (e) {
+          logger.error("Failed in detecting microphone permission status: " + e).sendInternalLogToServer();
+        })
       }
     } catch (e) {
       logger.error("Failed in detecting microphone permission status: " + e);
@@ -1027,7 +1028,6 @@
           var newMicrophoneTrack = newMicrophoneStream.getAudioTracks()[0];
           for (var connectionId in localMediaStream) {
             if (localMediaStream.hasOwnProperty(connectionId)) {
-              var localMedia = localMediaStream[connectionId].stream;
               var session = softphoneManager.getSession(connectionId);
               //Replace the audio track in the RtcPeerConnection
               session._pc.getSenders()[0].replaceTrack(newMicrophoneTrack).then(function () {
@@ -1089,7 +1089,6 @@
   /** Parse the JSON encoded web call config into the data it represents. */
   var parseCallConfig = function (serializedConfig) {
     // Our underscore is too old for unescape
-    // https://issues.amazon.com/issues/CSWF-1467
     var decodedJSON = serializedConfig.replace(/&quot;/g, '"');
     return JSON.parse(decodedJSON);
   };
@@ -1151,15 +1150,6 @@
       failedReason: reason
     });
   };
-
-  var getPerformanceTime = function () {
-    try {
-      return performance.now();
-    } catch (e) {
-      logger.error(e.message);
-      return 0;
-    }
-  }
 
   var publishTelemetryEvent = function (eventName, contactId, data) {
     try {
@@ -1333,7 +1323,8 @@
       audioOutputDevices: report.audioOutputDevices || null,
       timeSinceLastCallSeconds: report.timeSinceLastCallSeconds || null,
       pcmCreationToFirstCallSeconds: report.pcmCreationToFirstCallSeconds || null,
-      isPersistentConnectionOnPageLoadEnabled: true
+      isPersistentConnectionOnPageLoadEnabled: true,
+      allowExtendedPersistentConnection: allowExtendedPersistentConnection
     }
     ccpMediaReadyLatencyMillis = 0;
     isConnected = false;

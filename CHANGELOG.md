@@ -1,5 +1,67 @@
 # CHANGELOG.md
 
+## [2.30.3] - 2026-11-02
+Remove the deprecated Disaster Recovery bundle and the shared-worker entry point, fix two
+subscription APIs, forward the email ringtone options to the embedded CCP, and stop one
+throwing callback from blocking the others.
+
+Breaking: the names below are removed. None of them is documented. initCCP() no longer reads
+the disasterRecoveryOn option.
+
+release/connect-streams-dr.js, release/connect-streams-dr-min.js
+  - No longer built or published. The Global Resiliency APIs in Documentation-GR.md replace
+    them.
+
+src/core.js
+  - Remove connect.core.initDisasterRecovery and the rest of the legacy Disaster Recovery path.
+    initCCP() ignores the disasterRecoveryOn option, so the default iframe refresh interval is
+    5 seconds for every page, and connect.core.region, connect.core.suppressContacts and
+    connect.core.forceOffline are no longer set.
+  - Remove connect.core.init, connect.core.initAgentAppClient,
+    connect.core.initTaskTemplatesClient, connect.core.getAgentAppClient,
+    connect.core.getTaskTemplatesClient, connect.core.agentAppClient and
+    connect.core.taskTemplatesClient. Only the shared-worker entry point set up these clients.
+  - Forward email.disableRingtone and email.ringtoneUrl from initCCP() to the embedded CCP, so
+    the email ringtone can be disabled or replaced.
+  - Run each WebSocket subscriber callback on its own, so a callback that throws is logged and
+    the other subscribers still receive the message.
+  - connect.core.getFrameMediaDevices() rejects with the enumerateDevices() error instead of
+    waiting for its timeout.
+
+src/client.js
+  - Remove connect.AgentAppClient and connect.TaskTemplatesClient.
+
+src/event.js
+  - Remove connect.DisasterRecoveryEvents.
+
+src/util.js
+  - Remove connect.isSharedWorker() and connect.TRANSPORT_TYPES.AGENT_DISCOVERY.
+  - Add connect.invokeSafely and connect.invokeAllSafely, which run consumer callbacks so that
+    one that throws is logged and does not stop the caller.
+
+src/worker.js
+  - Removed, with connect.worker. It was the shared-worker entry point of the CCP and never ran
+    in a page that calls initCCP().
+
+src/api.js
+  - VoiceConnection.onCanResumeParticipantUpdated now subscribes. It called a voice-client
+    method that does not exist, so it threw a TypeError.
+  - The function that SessionExpirationWarningManager.onSessionExtensionError returns now
+    removes that handler. It removed a handler on a different topic, so the handler stayed.
+  - voiceConnection.enrollSpeakerInVoiceId() rejects when an enrollment status check fails,
+    instead of never settling.
+
+src/softphone.js
+  - The end-of-call softphone report includes allowExtendedPersistentConnection.
+
+src/index.d.ts
+  - Add EmailOptions, and the email option on InitCCPOptions and OptionalInitCCPOptions.
+
+package.json
+  - The npm package includes NOTICE.txt and THIRD_PARTY.txt.
+  - Remove the development dependencies that no script uses (mocha, nyc, sinon, jshint and
+    others), and the Disaster Recovery and mocha build scripts.
+
 ## [2.30.2] - 2026-10-13
 Delegate the loopback-network permission to the embedded CCP iframe so VDI
 softphone redirection can reach its local loopback socket in Chrome and Edge

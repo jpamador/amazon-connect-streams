@@ -120,8 +120,6 @@ const resetCoreState = () => {
   connect.core.tabId = null;
   connect.core.portStreamId = null;
   connect.core.region = null;
-  connect.core.suppressContacts = null;
-  connect.core.forceOffline = null;
   connect.core.loginWindow = null;
   connect.core.ctiAuthRetryCount = 0;
   connect.core.authorizeTimeoutId = null;

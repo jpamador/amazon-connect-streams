@@ -223,6 +223,88 @@ describe('Connections API', () => {
         );
       });
     });
+
+    describe('getConnectionToken', () => {
+      let client;
+      let logger;
+
+      function realAgentDataProvider(contactIds) {
+        const provider = Object.create(connect.core.AgentDataProvider.prototype);
+        provider.agentData = {
+          snapshot: {
+            contacts: contactIds.map((id) => ({ contactId: id, connections: [] })),
+          },
+        };
+        return provider;
+      }
+
+      beforeEach(() => {
+        client = { call: jest.fn() };
+        jest.spyOn(connect.core, 'getClient').mockReturnValue(client);
+        logger = {
+          info: jest.fn().mockReturnThis(),
+          error: jest.fn().mockReturnThis(),
+          withObject: jest.fn().mockReturnThis(),
+          withException: jest.fn().mockReturnThis(),
+          sendInternalLogToServer: jest.fn().mockReturnThis(),
+        };
+        jest.spyOn(connect, 'getLog').mockReturnValue(logger);
+      });
+
+      it('resolves with the CREATE_TRANSPORT response for a contact in the snapshot', async () => {
+        const chatConnection = new connect.ChatConnection(contactId, connectionId);
+        getAgentDataProviderStub.mockReturnValue(realAgentDataProvider([contactId]));
+
+        const tokenPromise = chatConnection.getConnectionToken();
+
+        expect(client.call).toHaveBeenCalledTimes(1);
+        expect(client.call).toHaveBeenCalledWith(
+          connect.ClientMethods.CREATE_TRANSPORT,
+          {
+            transportType: connect.TRANSPORT_TYPES.CHAT_TOKEN,
+            participantId: connectionId,
+            contactId,
+          },
+          expect.any(Object)
+        );
+
+        const response = { transport: { participantToken: 'a-participant-token' } };
+        client.call.mock.calls[0][2].success(response);
+
+        await expect(tokenPromise).resolves.toBe(response);
+        expect(logger.info).toHaveBeenCalledWith('getConnectionToken succeeded');
+      });
+
+      it('rejects when the CREATE_TRANSPORT call fails', async () => {
+        const chatConnection = new connect.ChatConnection(contactId, connectionId);
+        getAgentDataProviderStub.mockReturnValue(realAgentDataProvider([contactId]));
+
+        const tokenPromise = chatConnection.getConnectionToken();
+        const err = new Error('boom');
+        client.call.mock.calls[0][2].failure(err, { status: 500 });
+
+        await expect(tokenPromise).rejects.toThrow('getConnectionToken failed');
+        expect(logger.error).toHaveBeenCalledWith('getConnectionToken failed');
+        expect(logger.withObject).toHaveBeenCalledWith({ err, data: { status: 500 } });
+      });
+
+      it('throws synchronously without calling the client when the contact is gone from the snapshot', () => {
+        const chatConnection = new connect.ChatConnection(contactId, connectionId);
+        getAgentDataProviderStub.mockReturnValue(realAgentDataProvider(['some-other-contact']));
+
+        let thrown;
+        try {
+          chatConnection.getConnectionToken();
+        } catch (e) {
+          thrown = e;
+        }
+
+        expect(thrown).toBeDefined();
+        expect(thrown.name).toBe('StateError');
+        expect(thrown.message).toBe(`Contact ${contactId} no longer exists.`);
+        expect(client.call).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('#Voice Connection API', () => {
